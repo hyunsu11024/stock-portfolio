@@ -221,13 +221,9 @@ function doCfm(){if(_cfn)_cfn();closeCfm()}
 /* =================================================================
    SECTION 7 — 저장 / 로드 / 마이그레이션
    ================================================================= */
-var _cloudTimer=null;
 function save(s){
   localStorage.setItem(LK,JSON.stringify({projects:PL,rowGroups:RG,exchangeRate:ER,categories:cats,learningTabs:LT,sheetUrl:SU}));
   if(!s)toast("저장됨");
-  // 클라우드 자동 동기화 (5초 디바운스)
-  if(_cloudTimer)clearTimeout(_cloudTimer);
-  _cloudTimer=setTimeout(function(){if(user&&db)cloudSave()},5000);
 }
 
 function migCat(c){var r=J(c).filter(function(x){return['삼성증권','미래에셋','ISA계좌'].indexOf(x.id)<0});DC.forEach(function(d){if(!r.some(function(x){return x.id===d.id}))r.push(d)});return r}
@@ -1174,8 +1170,9 @@ function initFB(){
     auth.onAuthStateChanged(function(u){user=u;if(u)setupRT()});
   }catch(e){startOff()}
 }
-function setupRT(){if(!user)return;var ref=db.collection('stockPortfolio').doc('sharedData');ref.onSnapshot(function(snap){if(snap.exists){var d=snap.data();if(d.projects)PL=d.projects.map(migP);if(d.exchangeRate)ER=d.exchangeRate;if(d.sheetUrl)SU=d.sheetUrl;if(d.rowGroups)RG=migRG(d.rowGroups);cats=d.categories?migCat(d.categories):J(DC);LT=d.learningTabs||J(DL);ensureTK();save(true);render();if(firstLoad)doSync()}else if(firstLoad){startOff();cloudSave()}firstLoad=false})}
-function cloudSave(){if(!user)return toast("로그인 대기 중...");var ref=db.collection('stockPortfolio').doc('sharedData');ref.set({projects:PL,exchangeRate:ER,rowGroups:RG,categories:cats,learningTabs:LT,sheetUrl:SU,updatedAt:new Date().toISOString()}).then(function(){save(true);toast("클라우드 저장 완료! 링크 공유 시 모두가 볼 수 있습니다")}).catch(function(e){toast("저장 실패: "+e.message)})}
+var _skipSnap=false;
+function setupRT(){if(!user)return;var ref=db.collection('stockPortfolio').doc('sharedData');ref.onSnapshot(function(snap){if(_skipSnap){_skipSnap=false;return}if(snap.exists){var d=snap.data();if(d.projects)PL=d.projects.map(migP);if(d.exchangeRate)ER=d.exchangeRate;if(d.sheetUrl)SU=d.sheetUrl;if(d.rowGroups)RG=migRG(d.rowGroups);cats=d.categories?migCat(d.categories):J(DC);LT=d.learningTabs||J(DL);ensureTK();save(true);render();if(firstLoad)doSync()}else if(firstLoad){startOff()}firstLoad=false})}
+function cloudSave(){if(!user)return toast("로그인 대기 중...");_skipSnap=true;var ref=db.collection('stockPortfolio').doc('sharedData');ref.set({projects:PL,exchangeRate:ER,rowGroups:RG,categories:cats,learningTabs:LT,sheetUrl:SU,updatedAt:new Date().toISOString()}).then(function(){save(true);toast("클라우드 저장 완료!")}).catch(function(e){_skipSnap=false;toast("저장 실패: "+e.message)})}
 function startOff(){if(!load()){PL=[];cats=J(DC);LT=J(DL)}ensureTK();save(true);render();doSync()}
 
 /* =================================================================
