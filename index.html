@@ -191,7 +191,7 @@ function newProj(cat){var c='';if(cat.indexOf('한국')>=0||cat.indexOf('커버�
    SECTION 4 — 헤더 / 줌 / 동기화 타이머
    ================================================================= */
 function buildHdr(){
-  var b=[['📖 학습','openLearn()','bg-teal-600 border-teal-500'],['📊 차트','openChartModal()','bg-violet-600 border-violet-500'],['⚖️ 비교','openCompareModal()','bg-cyan-600 border-cyan-500'],['🔄 가격갱신','updateAllPrices()','bg-blue-600 border-blue-500'],['🔄 시트동기화','doSync(true)','bg-slate-700 border-slate-600'],['💾 저장','save()','bg-gradient-to-r from-indigo-500 to-blue-600 border-indigo-400/20'],['🔑 API','openApiModal()','bg-orange-600 border-orange-500'],['📋 백업','backup()','bg-amber-500 border-amber-400']];
+  var b=[['📖 학습','openLearn()','bg-teal-600 border-teal-500'],['📊 차트','openChartModal()','bg-violet-600 border-violet-500'],['⚖️ 비교','openCompareModal()','bg-cyan-600 border-cyan-500'],['🔄 가격갱신','updateAllPrices()','bg-blue-600 border-blue-500'],['🔄 시트동기화','doSync(true)','bg-slate-700 border-slate-600'],['☁️ 공유저장','cloudSave()','bg-gradient-to-r from-indigo-500 to-blue-600 border-indigo-400/20'],['🔑 API','openApiModal()','bg-orange-600 border-orange-500'],['📋 백업','backup()','bg-amber-500 border-amber-400']];
   var h=b.map(function(x){return'<button onclick="'+x[1]+'" class="px-3 py-2 '+x[2]+' text-white rounded-xl text-[13px] font-bold border whitespace-nowrap shrink-0">'+x[0]+'</button>'}).join('');
   h+='<div class="flex items-center gap-1.5 shrink-0"><select id="si" onchange="setSyncIv(+this.value)" class="bg-slate-800 text-slate-300 border border-slate-700 rounded-lg px-2 py-1.5 text-[12px] font-bold outline-none"><option value="60000">1분</option><option value="120000" selected>2분</option><option value="300000">5분</option><option value="0">수동</option></select><span id="st" class="text-[11px] text-slate-500 font-medium min-w-[55px]"></span></div>';
   h+='<div class="flex items-center bg-slate-800/80 rounded-xl border border-slate-700 overflow-hidden shrink-0 h-9"><button onclick="adjZoom(-0.1)" class="px-2.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 h-full">-</button><span id="zd" class="px-2 font-bold text-white min-w-[2.5rem] text-center text-[13px]">90%</span><button onclick="adjZoom(0.1)" class="px-2.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 h-full">+</button><button onclick="zoom=0.9;$(\'app\').style.zoom=0.9;$(\'zd\').innerText=\'90%\'" class="px-2.5 py-1.5 border-l border-slate-700 text-[12px] text-slate-400 hover:text-white hover:bg-slate-700 h-full">초기화</button></div>';
@@ -221,7 +221,14 @@ function doCfm(){if(_cfn)_cfn();closeCfm()}
 /* =================================================================
    SECTION 7 — 저장 / 로드 / 마이그레이션
    ================================================================= */
-function save(s){localStorage.setItem(LK,JSON.stringify({projects:PL,rowGroups:RG,exchangeRate:ER,categories:cats,learningTabs:LT,sheetUrl:SU}));if(!s)toast("저장됨")}
+var _cloudTimer=null;
+function save(s){
+  localStorage.setItem(LK,JSON.stringify({projects:PL,rowGroups:RG,exchangeRate:ER,categories:cats,learningTabs:LT,sheetUrl:SU}));
+  if(!s)toast("저장됨");
+  // 클라우드 자동 동기화 (5초 디바운스)
+  if(_cloudTimer)clearTimeout(_cloudTimer);
+  _cloudTimer=setTimeout(function(){if(user&&db)cloudSave()},5000);
+}
 
 function migCat(c){var r=J(c).filter(function(x){return['삼성증권','미래에셋','ISA계좌'].indexOf(x.id)<0});DC.forEach(function(d){if(!r.some(function(x){return x.id===d.id}))r.push(d)});return r}
 function migRG(g){
@@ -1150,9 +1157,25 @@ function showCompareResult(){
 /* =================================================================
    SECTION 25 — Firebase
    ================================================================= */
-function initFB(){try{if(typeof __firebase_config==='undefined')throw'no';var c=JSON.parse(__firebase_config);firebase.initializeApp(c);auth=firebase.auth();db=firebase.firestore();appId=typeof __app_id!=='undefined'?__app_id:'us-stock-portfolio-v11';if(typeof __initial_auth_token!=='undefined'&&__initial_auth_token)auth.signInWithCustomToken(__initial_auth_token);else auth.signInAnonymously();auth.onAuthStateChanged(function(u){user=u;if(u)setupRT()})}catch(e){startOff()}}
-function setupRT(){if(!user)return;var ref=db.collection('artifacts').doc(appId).collection('public').doc('data').collection('stockPortfolio').doc('sharedStateV11');ref.onSnapshot(function(snap){if(snap.exists){var d=snap.data();if(d.projects)PL=d.projects.map(migP);if(d.exchangeRate)ER=d.exchangeRate;if(d.sheetUrl)SU=d.sheetUrl;if(d.rowGroups)RG=migRG(d.rowGroups);cats=d.categories?migCat(d.categories):J(DC);LT=d.learningTabs||J(DL);ensureTK();save(true);render();if(firstLoad)doSync()}else if(firstLoad)startOff();firstLoad=false})}
-function cloudSave(){if(!user)return toast("오프라인 모드");var ref=db.collection('artifacts').doc(appId).collection('public').doc('data').collection('stockPortfolio').doc('sharedStateV11');ref.set({projects:PL,exchangeRate:ER,rowGroups:RG,categories:cats,learningTabs:LT,sheetUrl:SU,updatedAt:new Date().toISOString()}).then(function(){save(true);toast("클라우드 저장 완료")}).catch(function(){toast("저장 실패")})}
+function initFB(){
+  try{
+    var config={
+      apiKey:"AIzaSyA0H429Izi38PWXpCLb8QGXTHHzv5TgJzE",
+      authDomain:"stock-portfolio-50ee9.firebaseapp.com",
+      projectId:"stock-portfolio-50ee9",
+      storageBucket:"stock-portfolio-50ee9.firebasestorage.app",
+      messagingSenderId:"923070402047",
+      appId:"1:923070402047:web:100cc4cc4888332a8fabca"
+    };
+    firebase.initializeApp(config);
+    auth=firebase.auth();
+    db=firebase.firestore();
+    auth.signInAnonymously();
+    auth.onAuthStateChanged(function(u){user=u;if(u)setupRT()});
+  }catch(e){startOff()}
+}
+function setupRT(){if(!user)return;var ref=db.collection('stockPortfolio').doc('sharedData');ref.onSnapshot(function(snap){if(snap.exists){var d=snap.data();if(d.projects)PL=d.projects.map(migP);if(d.exchangeRate)ER=d.exchangeRate;if(d.sheetUrl)SU=d.sheetUrl;if(d.rowGroups)RG=migRG(d.rowGroups);cats=d.categories?migCat(d.categories):J(DC);LT=d.learningTabs||J(DL);ensureTK();save(true);render();if(firstLoad)doSync()}else if(firstLoad){startOff();cloudSave()}firstLoad=false})}
+function cloudSave(){if(!user)return toast("로그인 대기 중...");var ref=db.collection('stockPortfolio').doc('sharedData');ref.set({projects:PL,exchangeRate:ER,rowGroups:RG,categories:cats,learningTabs:LT,sheetUrl:SU,updatedAt:new Date().toISOString()}).then(function(){save(true);toast("클라우드 저장 완료! 링크 공유 시 모두가 볼 수 있습니다")}).catch(function(e){toast("저장 실패: "+e.message)})}
 function startOff(){if(!load()){PL=[];cats=J(DC);LT=J(DL)}ensureTK();save(true);render();doSync()}
 
 /* =================================================================
