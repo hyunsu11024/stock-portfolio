@@ -254,23 +254,42 @@ function fhGet(endpoint){
   });
 }
 
-/* 미국주식: Finnhub으로 현재가 + 기업정보 */
+/* 미국주식: Finnhub으로 현재가 + 기업정보 + 배당 + 52주 데이터 */
 function fetchUS(p){
   var tk=p.ticker.toUpperCase();
   return Promise.all([
     fhGet('quote?symbol='+tk),
-    fhGet('stock/profile2?symbol='+tk)
+    fhGet('stock/profile2?symbol='+tk),
+    fhGet('stock/metric?symbol='+tk+'&metric=all').catch(function(){return{}})
   ]).then(function(res){
-    var quote=res[0],prof=res[1];
+    var quote=res[0],prof=res[1],metric=res[2];
+    // 현재가
     if(quote&&quote.c&&quote.c>0){
       p.currentPrice=quote.c;
       if(quote.l)p.buyPrice=p.buyPrice||quote.l;
     }
+    // 기업 프로필
     if(prof&&prof.name){
       p.name=p.name||prof.name;
       if(prof.ipo)p.listedDate=p.listedDate||prof.ipo;
       if(prof.marketCapitalization)p.marketCap=prof.marketCapitalization*1e6;
-      if(prof.country)p.country=p.country||'미국';
+      p.country=p.country||'미국';
+    }
+    // 재무 지표 (배당, 52주 데이터)
+    if(metric&&metric.metric){
+      var m=metric.metric;
+      if(m.dividendYieldIndicatedAnnual!=null&&!p.divYield)
+        p.divYield=(m.dividendYieldIndicatedAnnual).toFixed(2)+'%';
+      if(m.dividendPerShareAnnual!=null&&!p.recentDiv)
+        p.recentDiv=m.dividendPerShareAnnual;
+      if(m['52WeekLow']!=null&&!p.buyPrice)
+        p.buyPrice=m['52WeekLow'];
+      if(m.marketCapitalization!=null&&!p.marketCap)
+        p.marketCap=m.marketCapitalization*1e6;
+      if(m.payoutRatioAnnual!=null){
+        // 배당주기 추정: Finnhub은 직접 제공 안 하므로 분기 기본값
+        if(!p.divFreq)p.divFreq='분기';
+      }
     }
     p.updatedAt=Date.now();
     return p;
@@ -301,17 +320,65 @@ function tryProxies(targetUrl,idx){
 
 function fetchKR(p){
   var tk=p.ticker.replace(/^0+/,'').padStart(6,'0');
-  var naverUrl='https://m.stock.naver.com/api/stock/'+tk+'/basic';
-  return tryProxies(naverUrl).then(function(data){
-    if(data.stockName)p.name=p.name||data.stockName;
-    if(data.closePrice){
-      var price=parseInt(String(data.closePrice).replace(/,/g,''));
-      if(!isNaN(price))p.currentPrice=price;
+  var basicUrl='https://m.stock.naver.com/api/stock/'+tk+'/basic';
+  var integUrl='https://m.stock.naver.com/api/stock/'+tk+'/integration';
+  var divUrl='https://m.stock.naver.com/api/stock/'+tk+'/dividend';
+
+  // 기본정보 + 통합정보 + 배당정보 병렬 조회
+  return Promise.all([
+    tryProxies(basicUrl).catch(function(){return null}),
+    tryProxies(integUrl).catch(function(){return null}),
+    tryProxies(divUrl).catch(function(){return null})
+  ]).then(function(res){
+    var basic=res[0], integ=res[1], divData=res[2];
+
+    // 기본정보: 종목명, 현재가, 시가총액
+    if(basic){
+      if(basic.stockName)p.name=p.name||basic.stockName;
+      if(basic.closePrice){var v=parseInt(String(basic.closePrice).replace(/,/g,''));if(!isNaN(v))p.currentPrice=v}
+      if(basic.marketValue){var mc=parseInt(String(basic.marketValue).replace(/,/g,''));if(!isNaN(mc))p.marketCap=mc}
+      if(basic.listingDate)p.listedDate=p.listedDate||basic.listingDate;
+      if(basic.stockExchangeType&&basic.stockExchangeType.name)p.country=p.country||'한국';
     }
-    if(data.marketValue){
-      var mc=parseInt(String(data.marketValue).replace(/,/g,''));
-      if(!isNaN(mc))p.marketCap=mc;
+
+    // 통합정보: 52주 최저가, 시총 보완
+    if(integ){
+      if(integ.low52wPrice&&!p.buyPrice){var lv=parseInt(String(integ.low52wPrice).replace(/,/g,''));if(!isNaN(lv))p.buyPrice=lv}
+      if(!p.marketCap&&integ.marketValue){var mc2=parseInt(String(integ.marketValue).replace(/,/g,''));if(!isNaN(mc2))p.marketCap=mc2}
+      if(integ.listingDate)p.listedDate=p.listedDate||integ.listingDate;
+      // dealTrendInfos에서 현재가 보완
+      if(!p.currentPrice&&integ.dealTrendInfos&&integ.dealTrendInfos.length){
+        var latest=integ.dealTrendInfos[0];
+        if(latest.closePrice){var cv=parseInt(String(latest.closePrice).replace(/,/g,''));if(!isNaN(cv))p.currentPrice=cv}
+      }
     }
+
+    // 배당정보
+    if(divData){
+      // 배당률
+      if(divData.dividendYield!=null&&!p.divYield){
+        var dy=parseFloat(String(divData.dividendYield));
+        if(!isNaN(dy))p.divYield=dy.toFixed(2)+'%';
+      }
+      // 최근 배당금
+      if(divData.dividend!=null&&!p.recentDiv){
+        var dv=parseInt(String(divData.dividend).replace(/,/g,''));
+        if(!isNaN(dv))p.recentDiv=dv;
+      }
+      // 배당 히스토리에서 정보 추출
+      if(divData.dividendInfos&&divData.dividendInfos.length&&!p.divFreq){
+        var cnt=divData.dividendInfos.length;
+        if(cnt>=4)p.divFreq='분기';
+        else if(cnt>=2)p.divFreq='반기';
+        else p.divFreq='연간';
+        // 최근 배당금 보완
+        if(!p.recentDiv&&divData.dividendInfos[0].dividend){
+          var rd=parseInt(String(divData.dividendInfos[0].dividend).replace(/,/g,''));
+          if(!isNaN(rd))p.recentDiv=rd;
+        }
+      }
+    }
+
     p.country=p.country||'한국';p.updatedAt=Date.now();
     return p;
   }).catch(function(){
