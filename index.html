@@ -165,8 +165,8 @@ var DR=[
   {catId:'review',catName:'종합검토',icon:'📝',items:[{id:'reviewPos',label:'긍정검토',type:'system'},{id:'reviewNeg',label:'부정검토',type:'system'},{id:'reviewOverall',label:'종합의견',type:'system'},{id:'reviewRank',label:'투자순위',type:'system'}]},
   {catId:'tax',catName:'세금',icon:'🧾',items:[{id:'capGains',label:'매매차익',type:'system'},{id:'cashDiv',label:'현금배당',type:'system'}]},
   {catId:'compETF',catName:'경쟁ETF',icon:'⚔️',items:[{id:'simETF',label:'동일성향',type:'system'},{id:'oppETF',label:'반대성향',type:'system'}]},
-  {catId:'buyPlan',catName:'매수계획',icon:'🛒',items:[{id:'planAmt',label:'계획금액',type:'system'},{id:'buyQty',label:'매수수량',type:'system'}]},
-  {catId:'holdings',catName:'보유 현황',icon:'💼',items:[{id:'ownedQty',label:'보유수량',type:'system'},{id:'avgBuyPrice',label:'매수평단가',type:'system'},{id:'ownedAmt',label:'평가금액',type:'system'},{id:'returnRate',label:'수익/손실',type:'system'}]},
+  {catId:'buyPlan',catName:'매수계획',icon:'🛒',items:[{id:'planAmt',label:'계획금액',type:'system'},{id:'buyQty',label:'매수수량',type:'system'},{id:'planPct',label:'달성률',type:'system'}]},
+  {catId:'holdings',catName:'보유 현황',icon:'💼',items:[{id:'ownedQty',label:'보유수량',type:'system'},{id:'avgBuyPrice',label:'매수평단가',type:'system'},{id:'ownedAmt',label:'평가금액',type:'system'},{id:'returnRate',label:'수익/손실',type:'system'},{id:'divHistory',label:'배당내역',type:'system'}]},
   {catId:'action',catName:'관리',icon:'⚙️',items:[{id:'action',label:'액션',type:'system'}]}
 ];
 var DT=[['한국주식','005930','한국'],['한국주식','000660','한국'],['기타','458730','한국'],['한국주식','035420','한국'],['한국상장미국ETF','379800','한국'],['고배당ETF','SCHD','미국'],['커버드콜ETF','JEPI','미국'],['미국형커버드콜','JEPQ','미국'],['미국주식','AAPL','미국'],['미국ETF','SPY','미국']];
@@ -185,7 +185,7 @@ function fC(n,k){if(n==null||isNaN(n)||n==='')return'';return k?Number(n).toLoca
 function fMC(s,k,ex){if(!s)return'';var v=parseFloat(String(s).replace(/[^0-9.\-]+/g,''));if(isNaN(v))return s;var e=v/1e8;if(v>0&&v<1e8)e=v;if(k)return Number(e).toLocaleString('ko-KR',{maximumFractionDigits:0})+'억원';var u=Number(e).toLocaleString('en-US',{maximumFractionDigits:2})+'억$';return ex?u+'\n(≈'+Number(e*ex).toLocaleString('ko-KR',{maximumFractionDigits:0})+'억원)':u}
 function fTx(t){if(!t)return'';var e=String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');return e.replace(/(https?:\/\/[^\s]+)/g,function(u){return'<a href="'+u+'" target="_blank" contenteditable="false" class="text-blue-500 underline" onclick="window.open(\''+u+'\',\'_blank\');event.stopPropagation();return false">'+u+'</a>'})}
 function gA(i){var lf=['reviewPos','reviewNeg','reviewOverall','capGains','cashDiv','simETF','oppETF'];return i.hAlign||(lf.indexOf(i.id)>=0?'left':'center')}
-function newProj(cat){var c='';if(cat.indexOf('한국')>=0||cat.indexOf('커버드콜')>=0)c='한국';else if(cat.indexOf('미국')>=0)c='미국';return{id:Date.now()+Math.floor(Math.random()*1e4),cat:cat,ticker:'',name:'',country:c,buyPrice:null,currentPrice:null,customData:{},listedDate:'',marketCap:'',divYield:'',recentDiv:'',divFreq:'',reviewPos:'',reviewNeg:'',reviewOverall:'',reviewRank:'',capGains:'',cashDiv:'',simETF:'',oppETF:'',planAmt:null,buyQty:null,bgColor:'#ffffff',ownedQty:null,avgBuyPrice:null,updatedAt:Date.now()}}
+function newProj(cat){var c='';if(cat.indexOf('한국')>=0||cat.indexOf('커버드콜')>=0)c='한국';else if(cat.indexOf('미국')>=0)c='미국';return{id:Date.now()+Math.floor(Math.random()*1e4),cat:cat,ticker:'',name:'',country:c,buyPrice:null,currentPrice:null,customData:{},listedDate:'',marketCap:'',divYield:'',recentDiv:'',divFreq:'',reviewPos:'',reviewNeg:'',reviewOverall:'',reviewRank:'',capGains:'',cashDiv:'',simETF:'',oppETF:'',planAmt:null,buyQty:null,bgColor:'#ffffff',ownedQty:null,avgBuyPrice:null,divHistory:[],updatedAt:Date.now()}}
 
 /* =================================================================
    SECTION 4 — 헤더 / 줌 / 동기화 타이머
@@ -236,8 +236,13 @@ function migRG(g){
   ens('review','종합검토','📝',[{id:'reviewPos',label:'긍정검토',type:'system'},{id:'reviewNeg',label:'부정검토',type:'system'},{id:'reviewOverall',label:'종합의견',type:'system'},{id:'reviewRank',label:'투자순위',type:'system'}]);
   ens('tax','세금','🧾',[{id:'capGains',label:'매매차익',type:'system'},{id:'cashDiv',label:'현금배당',type:'system'}]);
   ens('compETF','경쟁ETF','⚔️',[{id:'simETF',label:'동일성향',type:'system'},{id:'oppETF',label:'반대성향',type:'system'}]);
-  ens('buyPlan','매수계획','🛒',[{id:'planAmt',label:'계획금액',type:'system'},{id:'buyQty',label:'매수수량',type:'system'}]);
-  ens('holdings','보유 현황','💼',[{id:'ownedQty',label:'보유수량',type:'system'},{id:'avgBuyPrice',label:'매수평단가',type:'system'},{id:'ownedAmt',label:'평가금액',type:'system'},{id:'returnRate',label:'수익/손실',type:'system'}]);
+  ens('buyPlan','매수계획','🛒',[{id:'planAmt',label:'계획금액',type:'system'},{id:'buyQty',label:'매수수량',type:'system'},{id:'planPct',label:'달성률',type:'system'}]);
+  var bp=r.find(function(x){return x.catId==='buyPlan'});
+  if(bp&&!bp.items.find(function(i){return i.id==='planPct'}))bp.items.push({id:'planPct',label:'달성률',type:'system'});
+  ens('holdings','보유 현황','💼',[{id:'ownedQty',label:'보유수량',type:'system'},{id:'avgBuyPrice',label:'매수평단가',type:'system'},{id:'ownedAmt',label:'평가금액',type:'system'},{id:'returnRate',label:'수익/손실',type:'system'},{id:'divHistory',label:'배당내역',type:'system'}]);
+  // 기존 holdings에 divHistory 없으면 추가
+  var hg=r.find(function(x){return x.catId==='holdings'});
+  if(hg&&!hg.items.find(function(i){return i.id==='divHistory'}))hg.items.push({id:'divHistory',label:'배당내역',type:'system'});
   return r;
 }
 function migP(p){if(p.cat==='해외 주식')p.cat='미국 주식';if(['삼성증권','미래에셋','ISA계좌'].indexOf(p.cat)>=0)p.cat='기타';return p}
@@ -770,10 +775,12 @@ function buildCell(p,item){
     case'recentDiv':var fd=p.recentDiv;if(fd!=null&&fd!==''){var n=parseFloat(String(fd).replace(/[^0-9.\-]+/g,''));if(!isNaN(n))fd=fC(n,k)}return eCell(id,'recentDiv',fd||'','text-slate-700 '+al);
     case'planAmt':return eCell(id,'planAmt',p.planAmt!=null?Number(p.planAmt).toLocaleString():'','text-indigo-700 '+al,'oninput="calcBQ('+id+',this.innerText)"');
     case'buyQty':return'<div id="bq'+id+'" contenteditable="true" onkeydown="eKD(event)" onblur="updF('+id+',\'buyQty\',this.innerText)" class="ce text-emerald-600 block px-2 py-1.5 min-h-[2rem] text-[var(--font-cell)] sm:text-[var(--font-cell-sm)] '+al+' w-full">'+(p.buyQty!=null?Number(p.buyQty).toLocaleString():'')+'</div>';
+    case'planPct':var pct=0,invested=0,plan=p.planAmt||0;if(p.ownedQty&&p.avgBuyPrice)invested=p.ownedQty*p.avgBuyPrice;if(plan>0)pct=Math.min(Math.round(invested/plan*100),999);var barW=Math.min(pct,100);var barColor=pct>=100?'bg-emerald-500':pct>=50?'bg-indigo-500':'bg-amber-500';var pctText=pct>=100?'✅ '+pct+'%':pct+'%';return'<div class="flex flex-col items-center gap-1 w-full px-1"><div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden"><div class="'+barColor+' h-full rounded-full transition-all" style="width:'+barW+'%"></div></div><span class="text-xs font-extrabold '+(pct>=100?'text-emerald-600':pct>=50?'text-indigo-600':'text-amber-600')+'">'+pctText+(plan>0?' ('+fC(invested,isKR(p))+')':'')+'</span></div>';
     case'ownedQty':return'<div id="oq'+id+'" contenteditable="true" onkeydown="eKD(event)" oninput="calcH('+id+')" onblur="updF('+id+',\'ownedQty\',this.innerText)" class="ce text-indigo-700 font-extrabold block px-2 py-1.5 min-h-[2rem] text-[var(--font-cell)] sm:text-[var(--font-cell-sm)] '+al+' w-full">'+(p.ownedQty!=null?Number(p.ownedQty).toLocaleString():'')+'</div>';
     case'avgBuyPrice':return'<div id="ap'+id+'" contenteditable="true" onkeydown="eKD(event)" oninput="calcH('+id+')" onblur="updF('+id+',\'avgBuyPrice\',this.innerText)" class="ce text-indigo-700 font-extrabold block px-2 py-1.5 min-h-[2rem] text-[var(--font-cell)] sm:text-[var(--font-cell-sm)] '+al+' w-full">'+(p.avgBuyPrice!=null?fC(p.avgBuyPrice,k):'')+'</div>';
     case'ownedAmt':var am=(p.ownedQty!=null&&p.currentPrice)?(p.ownedQty*p.currentPrice):null;return'<div id="oa'+id+'" class="block px-2 py-1.5 min-h-[2rem] text-[var(--font-cell)] sm:text-[var(--font-cell-sm)] font-extrabold text-slate-800 '+al+' w-full pointer-events-none">'+(am!=null?fC(am,k):'')+'</div>';
     case'returnRate':var rh='';if(p.avgBuyPrice!=null&&p.currentPrice&&p.avgBuyPrice>0){var rt=((p.currentPrice-p.avgBuyPrice)/p.avgBuyPrice)*100,s=rt>0?'+'+rt.toFixed(2)+'%':rt.toFixed(2)+'%';rh=rt>0?'<span class="text-rose-500 font-extrabold">'+s+'</span>':rt<0?'<span class="text-blue-500 font-extrabold">'+s+'</span>':'<span class="text-slate-500 font-extrabold">0.00%</span>'}return'<div id="rr'+id+'" class="block px-2 py-1.5 min-h-[2rem] text-[var(--font-cell)] sm:text-[var(--font-cell-sm)] '+al+' w-full pointer-events-none">'+rh+'</div>';
+    case'divHistory':var dh=p.divHistory||[],totalDiv=0;dh.forEach(function(r){totalDiv+=r.amount||0});var kr2=isKR(p);return'<div class="flex flex-col items-center gap-1 w-full"><button onclick="openDivHist('+id+')" class="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-extrabold border border-emerald-200 hover:bg-emerald-100 w-[90%]">💰 '+dh.length+'건'+(totalDiv>0?' / '+fC(totalDiv,kr2):'')+'</button></div>';
     case'reviewPos':return eCell(id,'reviewPos',fTx(p.reviewPos),'text-emerald-600 tw '+al);
     case'reviewNeg':return eCell(id,'reviewNeg',fTx(p.reviewNeg),'text-rose-500 tw '+al);
     default:return eCell(id,item.id,fTx(p[item.id])||'','text-slate-700 tw '+al);
@@ -803,16 +810,28 @@ function render(){
     cd.className="bg-white rounded-2xl shadow-sm border border-slate-200/80 flex flex-col hover:shadow-md transition-shadow relative w-full min-w-0";
     cd.innerHTML='<div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-5 py-3 flex justify-between items-center rounded-t-2xl"><div class="flex items-center gap-2"><span class="text-xl">'+cat.icon+'</span><h2 class="text-[17px] font-extrabold">'+cat.label+'</h2><span class="text-xs bg-white/10 px-2 py-0.5 rounded-lg">'+its.length+'종목</span></div><button onclick="addP(\''+cat.id+'\')" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[13px] font-bold border border-white/10">+ 추가</button></div>';
 
-    var tw=document.createElement('div');tw.className="overflow-x-auto overflow-y-hidden sb bg-white w-full tw2 pb-1";tw.dataset.c=cat.id;tw.style.maxHeight='none';
+    var tw=document.createElement('div');tw.className="overflow-x-auto overflow-y-auto sb bg-white w-full tw2 pb-1";tw.dataset.c=cat.id;tw.style.maxHeight='75vh';
 
     if(!its.length){tw.innerHTML='<div class="p-8 text-center text-slate-400 font-bold bg-slate-50 rounded-b-2xl">종목이 없습니다.</div>'}
     else{
-      var h='<table class="w-max table-fixed text-base text-center border-separate border-spacing-0"><tbody>';
+      var h='<table class="w-max table-fixed text-base text-center" style="border-collapse:separate;border-spacing:0">';
+      // 스티키 종목 헤더
+      h+='<thead><tr style="position:sticky;top:0;z-index:50">';
+      h+='<th style="position:sticky;left:0;z-index:60;min-width:var(--group-w);width:var(--group-w)" class="bg-slate-900 text-white p-1.5 text-xs font-bold border-b-2 border-indigo-500">그룹</th>';
+      h+='<th style="position:sticky;left:var(--group-w);z-index:55;min-width:var(--label-w);width:var(--label-w)" class="bg-slate-900 text-white p-1.5 text-xs font-bold border-b-2 border-indigo-500 shadow-[4px_0_8px_-2px_rgba(0,0,0,.2)]">항목</th>';
+      its.forEach(function(p){
+        var kr=isKR(p);var priceStr=p.currentPrice?fC(p.currentPrice,kr):'';
+        h+='<th style="min-width:var(--cell-w);width:var(--cell-w);z-index:45" class="bg-slate-900 text-white p-1.5 border-b-2 border-indigo-500">';
+        h+='<span class="font-extrabold text-xs">'+(p.name||p.ticker||'?')+'</span>';
+        if(priceStr)h+=' <span class="text-[10px] text-indigo-300">'+priceStr+'</span>';
+        h+='</th>';
+      });
+      h+='</tr></thead><tbody>';
       RG.forEach(function(g){g.items.forEach(function(it,idx){
         h+='<tr class="hover:bg-slate-50/70 group/tr">';
-        if(!idx)h+='<td rowspan="'+g.items.length+'" class="bg-slate-50 border border-slate-200 text-center p-2 w-[var(--group-w)] min-w-[var(--group-w)] max-w-[var(--group-w)] sm:w-[var(--group-w-sm)] sm:min-w-[var(--group-w-sm)] align-middle sticky left-0 z-30"><div class="flex flex-col items-center text-slate-500"><span class="text-xl">'+g.icon+'</span><span class="text-base sm:text-lg font-extrabold text-slate-600 leading-tight mt-1">'+g.catName+'</span></div></td>';
-        h+='<td class="bg-white group-hover/tr:bg-slate-50/70 border border-slate-200 py-2 px-2 text-base sm:text-lg font-extrabold text-slate-500 whitespace-nowrap w-[var(--label-w)] min-w-[var(--label-w)] max-w-[var(--label-w)] sm:w-[var(--label-w-sm)] sm:min-w-[var(--label-w-sm)] text-center align-middle shadow-[4px_0_8px_-2px_rgba(0,0,0,.05)] sticky left-[var(--group-w)] sm:left-[var(--group-w-sm)] z-20">'+it.label+'</td>';
-        its.forEach(function(p){h+='<td class="border border-slate-200 py-2 px-1.5 w-[var(--cell-w)] min-w-[var(--cell-w)] max-w-[var(--cell-w)] sm:w-[var(--cell-w-sm)] sm:min-w-[var(--cell-w-sm)] align-middle z-10" style="background:'+(p.bgColor||'#fff')+'">'+buildCell(p,it)+'</td>'});
+        if(!idx)h+='<td rowspan="'+g.items.length+'" style="position:sticky;left:0;z-index:30;min-width:var(--group-w);width:var(--group-w);max-width:var(--group-w)" class="bg-slate-50 border border-slate-200 text-center p-2 align-middle"><div class="flex flex-col items-center text-slate-500"><span class="text-xl">'+g.icon+'</span><span class="text-base sm:text-lg font-extrabold text-slate-600 leading-tight mt-1">'+g.catName+'</span></div></td>';
+        h+='<td style="position:sticky;left:var(--group-w);z-index:20;min-width:var(--label-w);width:var(--label-w);max-width:var(--label-w)" class="bg-white group-hover/tr:bg-slate-50/70 border border-slate-200 py-2 px-2 text-base sm:text-lg font-extrabold text-slate-500 whitespace-nowrap text-center align-middle shadow-[4px_0_8px_-2px_rgba(0,0,0,.05)]">'+it.label+'</td>';
+        its.forEach(function(p){h+='<td class="border border-slate-200 py-2 px-1.5 align-middle" style="min-width:var(--cell-w);width:var(--cell-w);max-width:var(--cell-w);background:'+(p.bgColor||'#fff')+'">'+buildCell(p,it)+'</td>'});
         h+='</tr>'})});
       h+='<tr><td colspan="'+(its.length+2)+'" class="p-0 border-none rounded-b-2xl"><button onclick="openItemM()" class="w-full py-2.5 text-[13px] font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-b-2xl">⚙️ 항목 설정</button></td></tr></tbody></table>';
       tw.innerHTML=h;
@@ -876,6 +895,96 @@ function initDM(){var e=$('lb'),h=$('lh');if(!e||!h)return;var dr=false,sx,sy,ix
    SECTION 22 — 시트 URL 변경 모달
    ================================================================= */
 function openSM(){var e=$('sm');if(e)e.remove();$('modals').insertAdjacentHTML('beforeend','<div id="sm" class="fixed inset-0 z-[200] flex items-center justify-center p-4 overlay"><div class="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] overflow-hidden border border-slate-100"><div class="bg-slate-900 px-5 py-3 flex justify-between items-center text-white"><h3 class="font-extrabold">🔗 시트 연동</h3><button onclick="$(\'sm\').remove()" class="text-slate-400 hover:text-white text-2xl">✕</button></div><div class="p-5 space-y-3"><input id="nsu" value="'+SU+'" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"><p class="text-xs text-slate-400">※ 공유설정: 링크 있는 모든 사용자 보기</p><div class="flex justify-end gap-2 pt-2"><button onclick="$(\'sm\').remove()" class="px-4 py-2 bg-slate-100 rounded-xl font-bold">취소</button><button onclick="SU=$(\'nsu\').value.trim();save(true);render();doSync(true);$(\'sm\').remove()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">저장</button></div></div></div></div>')}
+
+/* =================================================================
+   SECTION 22B — 배당 수령 내역 모달
+   ================================================================= */
+function openDivHist(pid){
+  var p=PL.find(function(x){return x.id===pid});if(!p)return;
+  if(!p.divHistory)p.divHistory=[];
+  var e=$('dhM');if(e)e.remove();
+  var kr=isKR(p);
+  var w=Math.min(600,innerWidth*.95);
+
+  var html='<div id="dhM" class="fixed inset-0 z-[190] flex items-center justify-center p-4 overlay">'+
+    '<div class="bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden border border-slate-100" style="max-width:'+w+'px;max-height:85vh">'+
+    '<div class="bg-emerald-700 px-5 py-3 flex justify-between items-center text-white shrink-0">'+
+    '<h3 class="font-extrabold">💰 배당 내역 — '+(p.name||p.ticker||'?')+'</h3>'+
+    '<button onclick="$(\'dhM\').remove()" class="text-emerald-200 hover:text-white text-2xl">✕</button></div>'+
+    '<div class="p-4 border-b border-slate-200 bg-slate-50 shrink-0">'+
+    '<div class="flex gap-2 items-end">'+
+    '<div class="flex-1"><label class="text-xs font-bold text-slate-500 block mb-1">배당일</label>'+
+    '<input id="dh-date" type="date" value="'+new Date().toISOString().slice(0,10)+'" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-bold"></div>'+
+    '<div class="w-28"><label class="text-xs font-bold text-slate-500 block mb-1">주당 배당금</label>'+
+    '<input id="dh-per" type="number" placeholder="0" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-bold text-right"></div>'+
+    '<div class="w-24"><label class="text-xs font-bold text-slate-500 block mb-1">수량</label>'+
+    '<input id="dh-qty" type="number" placeholder="'+(p.ownedQty||0)+'" value="'+(p.ownedQty||'')+'" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-bold text-right"></div>'+
+    '<div class="w-28"><label class="text-xs font-bold text-slate-500 block mb-1">총 수령액</label>'+
+    '<input id="dh-amt" type="number" placeholder="자동계산" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-bold text-right bg-slate-50"></div>'+
+    '<button onclick="addDivRec('+pid+')" class="px-4 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-sm shrink-0 h-[34px]">추가</button>'+
+    '</div></div>'+
+    '<div id="dh-list" class="flex-1 overflow-y-auto sb p-4"></div>'+
+    '<div id="dh-summary" class="bg-slate-50 px-5 py-3 border-t border-slate-200 shrink-0"></div>'+
+    '</div></div>';
+  $('modals').insertAdjacentHTML('beforeend',html);
+
+  // 주당배당금*수량 자동계산
+  var perEl=$('dh-per'),qtyEl=$('dh-qty'),amtEl=$('dh-amt');
+  function autoCalc(){var per=parseFloat(perEl.value)||0,qty=parseFloat(qtyEl.value)||0;if(per&&qty)amtEl.value=Math.round(per*qty)}
+  perEl.oninput=autoCalc;qtyEl.oninput=autoCalc;
+
+  renderDivList(pid);
+}
+
+function renderDivList(pid){
+  var p=PL.find(function(x){return x.id===pid});if(!p)return;
+  var kr=isKR(p),list=$('dh-list'),sum=$('dh-summary');
+  if(!list)return;
+  var dh=p.divHistory||[];
+  var total=0,taxTotal=0;
+  dh.forEach(function(r){total+=r.amount||0;taxTotal+=r.tax||0});
+
+  if(!dh.length){
+    list.innerHTML='<div class="text-center text-slate-400 font-bold py-8">배당 수령 기록이 없습니다.</div>';
+  }else{
+    list.innerHTML='<table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-slate-500"><th class="py-2 text-left font-bold">날짜</th><th class="py-2 text-right font-bold">주당</th><th class="py-2 text-right font-bold">수량</th><th class="py-2 text-right font-bold">수령액</th><th class="py-2 text-right font-bold">세후</th><th class="py-2"></th></tr></thead><tbody>'+
+    dh.map(function(r,i){
+      var afterTax=r.amount?Math.round(r.amount*0.846):0; // 15.4% 세금
+      return'<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-2 font-bold text-slate-700">'+(r.date||'-')+'</td>'+
+        '<td class="py-2 text-right font-bold text-slate-600">'+(r.perShare?fC(r.perShare,kr):'')+'</td>'+
+        '<td class="py-2 text-right text-slate-600">'+(r.qty||'')+'</td>'+
+        '<td class="py-2 text-right font-extrabold text-emerald-600">'+(r.amount?fC(r.amount,kr):'')+'</td>'+
+        '<td class="py-2 text-right font-bold text-indigo-600">'+fC(afterTax,kr)+'</td>'+
+        '<td class="py-2 text-right"><button onclick="delDivRec('+pid+','+i+')" class="text-rose-400 hover:text-rose-600 text-xs">✕</button></td></tr>';
+    }).join('')+'</tbody></table>';
+  }
+
+  var afterTaxTotal=Math.round(total*0.846);
+  sum.innerHTML='<div class="flex justify-between items-center"><div class="flex gap-4 text-sm">'+
+    '<span class="font-bold text-slate-500">총 '+dh.length+'건</span>'+
+    '<span class="font-extrabold text-emerald-600">세전 '+fC(total,kr)+'</span>'+
+    '<span class="font-extrabold text-indigo-600">세후(15.4%) '+fC(afterTaxTotal,kr)+'</span>'+
+    '</div><button onclick="$(\'dhM\').remove()" class="px-4 py-1.5 bg-slate-800 text-white rounded-xl font-bold text-sm">닫기</button></div>';
+}
+
+function addDivRec(pid){
+  var p=PL.find(function(x){return x.id===pid});if(!p)return;
+  if(!p.divHistory)p.divHistory=[];
+  var date=$('dh-date').value,per=parseFloat($('dh-per').value)||0,qty=parseFloat($('dh-qty').value)||0,amt=parseFloat($('dh-amt').value)||0;
+  if(!amt&&per&&qty)amt=Math.round(per*qty);
+  if(!amt)return toast('수령액을 입력하세요');
+  p.divHistory.unshift({date:date,perShare:per,qty:qty,amount:amt,tax:Math.round(amt*0.154)});
+  save(true);renderDivList(pid);render();
+  $('dh-per').value='';$('dh-amt').value='';
+  toast('배당 내역 추가됨');
+}
+
+function delDivRec(pid,idx){
+  var p=PL.find(function(x){return x.id===pid});if(!p||!p.divHistory)return;
+  confirm2('이 배당 내역을 삭제하시겠습니까?',function(){
+    p.divHistory.splice(idx,1);save(true);renderDivList(pid);render();
+  });
+}
 
 /* =================================================================
    SECTION 23 — 차트 시각화 모달
